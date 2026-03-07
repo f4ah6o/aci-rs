@@ -511,13 +511,13 @@ where
     let args: Vec<String> = argv.into_iter().map(Into::into).collect();
     if args.is_empty() {
         return Ok(CommandOutput::err(
-            json_error(
-                "USAGE",
-                "usage: aci skills | aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
-                    .to_string(),
-            ),
+            json_error("USAGE", cli_usage_text().to_string()),
             2,
         ));
+    }
+
+    if args.len() == 1 && matches!(args[0].as_str(), "help" | "--help" | "-h") {
+        return Ok(CommandOutput::ok(cli_help_text().to_string()));
     }
 
     if args[0] == "skills" {
@@ -603,6 +603,10 @@ Common checks:
 }
 
 async fn run_call_mode(args: &[String]) -> Result<CommandOutput, AciError> {
+    if args.len() == 1 && matches!(args[0].as_str(), "--help" | "-h") {
+        return Ok(CommandOutput::ok(call_help_text().to_string()));
+    }
+
     let mut idx = 0;
     let mut base_url: Option<String> = None;
     let mut base_path: Option<String> = None;
@@ -647,6 +651,39 @@ async fn run_call_mode(args: &[String]) -> Result<CommandOutput, AciError> {
     }
 
     mount.run_raw(&passthrough, verbose).await
+}
+
+fn cli_usage_text() -> &'static str {
+    "usage: aci skills | aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
+}
+
+fn cli_help_text() -> &'static str {
+    r#"aci help
+
+Usage:
+  aci skills
+  aci call --url <base_url> <path...> [flags]
+  aci [--config aci.toml] <mount> [operation|raw ...]
+  aci --help
+"#
+}
+
+fn call_help_text() -> &'static str {
+    r#"aci call help
+
+Usage:
+  aci call --url <base_url> <path...> [flags]
+
+Flags:
+  --url <base_url>        Base URL for the API (required)
+  --base-path <prefix>    Prefix path added before request path
+  --verbose               Include response headers
+  -X, --method <METHOD>   HTTP method (GET by default)
+  -H, --header <K: V>     Request header (repeatable)
+  -d, --data <json>       JSON request body
+  --body <json>           Alias of --data
+  --query <k=v>           Query parameter (repeatable)
+"#
 }
 
 fn load_app_from_toml(path: &Path) -> Result<AciApp, AciError> {
@@ -1451,5 +1488,27 @@ openapi = "{}"
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("aci skills"));
         assert!(out.stdout.is_empty());
+    }
+
+    #[tokio::test]
+    async fn global_help_subcommands_work() {
+        for arg in ["help", "--help", "-h"] {
+            let out = run_cli(vec![arg.to_string()]).await.expect("run success");
+            assert_eq!(out.exit_code, 0);
+            assert!(out.stdout.contains("Usage:"));
+            assert!(out.stderr.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn call_help_works() {
+        for arg in ["--help", "-h"] {
+            let out = run_cli(vec!["call".to_string(), arg.to_string()])
+                .await
+                .expect("run success");
+            assert_eq!(out.exit_code, 0);
+            assert!(out.stdout.contains("aci call --url <base_url>"));
+            assert!(out.stderr.is_empty());
+        }
     }
 }

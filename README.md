@@ -36,6 +36,13 @@ Before first publish, enable trusted publishing for crate `aci` in crates.io and
 
 ## Quick Start
 
+### Help
+
+```bash
+aci help
+aci --help
+```
+
 ### 0) Coding agent guide
 
 ```bash
