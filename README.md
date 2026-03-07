@@ -2,38 +2,93 @@
 
 Rust implementation of "Mount APIs as CLIs".
 
-## Modes
+`aci` mounts HTTP APIs as command-line interfaces in two ways:
+- generic raw fetch mode (`aci call ...`)
+- config-driven mount mode (`aci --config aci.toml <mount> ...`)
 
-- `aci call --url <base_url> [--base-path <path>] <path...> [curl-style flags]`
-- `aci [--config aci.toml] <mount> ...`
+## Install
 
-## Raw fetch flags
+```bash
+cargo install --path .
+```
 
-- `-X, --method <METHOD>`
-- `-H, --header "Key: Value"`
-- `-d, --data <json>`
-- `--body <json>`
-- `--query key=value` (repeatable)
-- unknown `--key value` is also treated as query for compatibility
+## Quick Start
 
-## Config example
+### 1) Generic API client mode
+
+```bash
+aci call --url https://api.github.com repos rust-lang rust \
+  -H "Accept: application/vnd.github+json" \
+  -H "User-Agent: aci"
+```
+
+### 2) Config-driven mode (`aci.toml`)
 
 ```toml
 name = "aci"
 
 [[mounts]]
-name = "api"
+name = "github"
 kind = "remote"
-base_url = "http://localhost:3000"
-base_path = "/api"
-openapi = "./openapi.yaml"
-timeout_ms = 10_000
+base_url = "https://api.github.com"
 ```
 
-## OpenAPI mount behavior
+```bash
+aci --config aci.toml github repos rust-lang rust \
+  -H "Accept: application/vnd.github+json" \
+  -H "User-Agent: aci"
+```
 
-- `operationId` becomes command name.
-- When `operationId` is missing, a command name is generated from method/path.
-- Path params are positional args.
-- Query/body fields are `--option value`.
-- `raw` subcommand is always available on OpenAPI mounts.
+## Raw Fetch Flags
+
+- `-X, --method <METHOD>`
+- `-H, --header "Key: Value"` (repeatable)
+- `-d, --data <json>`
+- `--body <json>`
+- `--query key=value` (repeatable)
+- unknown `--key value` is treated as query for compatibility
+
+## Auth / Token Example
+
+```bash
+aci call --url https://api.github.com user \
+  -H "Accept: application/vnd.github+json" \
+  -H "User-Agent: aci" \
+  -H "Authorization: Bearer $GITHUB_TOKEN"
+```
+
+## OpenAPI Mounts
+
+Mount with OpenAPI by setting `openapi` in `aci.toml`:
+
+```toml
+name = "aci"
+
+[[mounts]]
+name = "pet"
+kind = "remote"
+base_url = "https://petstore3.swagger.io"
+base_path = "/api/v3"
+openapi = "./openapi.json"
+timeout_ms = 10000
+```
+
+Behavior:
+- `operationId` becomes command name
+- missing `operationId` falls back to `method_path` name
+- path params are positional args
+- query/body params are `--option value`
+- OpenAPI mounts always have `raw` subcommand fallback
+
+Example:
+
+```bash
+aci --config aci.toml pet findPetsByStatus --status available
+aci --config aci.toml pet raw pet findByStatus --query status=available
+```
+
+## Exit Codes
+
+- `0`: success
+- `1`: upstream/API execution failure
+- `2`: usage/config/input error
