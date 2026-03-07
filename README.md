@@ -15,6 +15,25 @@ It also includes a coding-agent-oriented quick guide:
 cargo install --path .
 ```
 
+## Trusted Publishing
+
+This repository is configured for [crates.io trusted publishing](https://crates.io/docs/trusted-publishing).
+
+Create and push a `v<version>` tag to trigger publish:
+
+```bash
+just release
+```
+
+or:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+Before first publish, enable trusted publishing for crate `aci` in crates.io and link `f4ah6o/aci-rs`.
+
 ## Quick Start
 
 ### 0) Coding agent guide

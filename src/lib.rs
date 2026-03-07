@@ -1116,8 +1116,7 @@ fn operation_name(method: &Method, path: &str, operation: &Operation) -> String 
 
     let cleaned = path
         .replace('/', "_")
-        .replace('{', "")
-        .replace('}', "")
+        .replace(['{', '}'], "")
         .trim_matches('_')
         .to_string();
     format!("{}_{}", method.as_str().to_lowercase(), cleaned)

@@ -2,7 +2,9 @@
 name = "aci"
 version = "0.1.0"
 edition = "2024"
+description = "Mount APIs as CLIs with raw HTTP and OpenAPI-backed commands"
 license = "MIT"
+repository = "https://github.com/f4ah6o/aci-rs"
 
 [dependencies]
 async-trait = "0.1.89"
