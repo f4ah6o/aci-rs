@@ -513,8 +513,28 @@ where
         return Ok(CommandOutput::err(
             json_error(
                 "USAGE",
-                "usage: aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
+                "usage: aci skills | aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
                     .to_string(),
+            ),
+            2,
+        ));
+    }
+
+    if args[0] == "skills" {
+        if args.len() > 1 {
+            return Ok(CommandOutput::err(
+                json_error("USAGE", "usage: aci skills".to_string()),
+                2,
+            ));
+        }
+        return Ok(CommandOutput::ok(skills_guide_text().to_string()));
+    }
+
+    if args[0] == "--skills" {
+        return Ok(CommandOutput::err(
+            json_error(
+                "USAGE",
+                "'--skills' is not supported. use 'aci skills'".to_string(),
             ),
             2,
         ));
@@ -555,6 +575,31 @@ where
 
     let app = load_app_from_toml(Path::new(&config_path))?;
     app.run(run_args, verbose).await
+}
+
+fn skills_guide_text() -> &'static str {
+    r#"aci skills (for coding agents)
+
+Use aci in three modes:
+1) Generic API call:
+   aci call --url <base_url> <path...> [flags]
+
+2) Config-driven mount:
+   aci --config aci.toml <mount> [operation|raw ...]
+
+3) OpenAPI operation calls:
+   aci --config aci.toml <mount> <operationId> [--option value]
+
+Auth pattern:
+  -H "Authorization: Bearer $TOKEN"
+  -H "Accept: application/json"
+  -H "User-Agent: aci"
+
+Common checks:
+- If API returns 404, verify --base-path and path segments.
+- For GitHub API, always set User-Agent.
+- Use '<mount> raw ...' when OpenAPI operation mapping is not enough.
+"#
 }
 
 async fn run_call_mode(args: &[String]) -> Result<CommandOutput, AciError> {
@@ -1387,5 +1432,25 @@ openapi = "{}"
 
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("\"ok\": true"));
+    }
+
+    #[tokio::test]
+    async fn skills_subcommand_works() {
+        let out = run_cli(vec!["skills".to_string()])
+            .await
+            .expect("run success");
+        assert_eq!(out.exit_code, 0);
+        assert!(out.stdout.contains("for coding agents"));
+        assert!(out.stderr.is_empty());
+    }
+
+    #[tokio::test]
+    async fn skills_flag_returns_usage_error() {
+        let out = run_cli(vec!["--skills".to_string()])
+            .await
+            .expect("run success");
+        assert_eq!(out.exit_code, 2);
+        assert!(out.stderr.contains("aci skills"));
+        assert!(out.stdout.is_empty());
     }
 }

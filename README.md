@@ -6,6 +6,9 @@ Rust implementation of "Mount APIs as CLIs".
 - generic raw fetch mode (`aci call ...`)
 - config-driven mount mode (`aci --config aci.toml <mount> ...`)
 
+It also includes a coding-agent-oriented quick guide:
+- `aci skills`
+
 ## Install
 
 ```bash
@@ -13,6 +16,12 @@ cargo install --path .
 ```
 
 ## Quick Start
+
+### 0) Coding agent guide
+
+```bash
+aci skills
+```
 
 ### 1) Generic API client mode
 
