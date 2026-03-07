@@ -1307,7 +1307,9 @@ paths:
     }
 
     async fn spawn_server(app: Router) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind listener");
         let addr = listener.local_addr().expect("read addr");
         tokio::spawn(async move {
             axum::serve(listener, app).await.expect("server error");
