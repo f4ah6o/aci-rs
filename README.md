@@ -28,8 +28,8 @@ just release
 or:
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v2026.3.0
+git push origin v2026.3.0
 ```
 
 Before first publish, enable trusted publishing for crate `aci` in crates.io and link `f4ah6o/aci-rs`.

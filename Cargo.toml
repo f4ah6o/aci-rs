@@ -1,6 +1,6 @@
 [package]
 name = "aci"
-version = "0.1.2"
+version = "2026.3.0"
 edition = "2024"
 description = "Mount APIs as CLIs with raw HTTP and OpenAPI-backed commands"
 license = "MIT"
