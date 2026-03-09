@@ -602,6 +602,16 @@ where
         return Ok(CommandOutput::ok(cli_help_text().to_string()));
     }
 
+    if matches!(args[0].as_str(), "version" | "--version" | "-V") {
+        if args.len() > 1 {
+            return Ok(CommandOutput::err(
+                json_error("USAGE", "usage: aci version".to_string()),
+                2,
+            ));
+        }
+        return Ok(CommandOutput::ok(cli_version_text().to_string()));
+    }
+
     if args[0] == "skills" {
         if args.len() > 1 {
             return Ok(CommandOutput::err(
@@ -736,18 +746,24 @@ async fn run_call_mode(args: &[String]) -> Result<CommandOutput, AciError> {
 }
 
 fn cli_usage_text() -> &'static str {
-    "usage: aci skills | aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
+    "usage: aci version | aci skills | aci call --url <base_url> [args...] | aci [--config aci.toml] <mount> ..."
 }
 
 fn cli_help_text() -> &'static str {
     r#"aci help
 
 Usage:
+  aci version
   aci skills
   aci call --url <base_url> <path...> [flags]
   aci [--config aci.toml] <mount> [operation|raw ...]
+  aci --version
   aci --help
 "#
+}
+
+fn cli_version_text() -> &'static str {
+    concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"), "\n")
 }
 
 fn call_help_text() -> &'static str {
@@ -1605,6 +1621,19 @@ openapi = "{}"
             let out = run_cli(vec![arg.to_string()]).await.expect("run success");
             assert_eq!(out.exit_code, 0);
             assert!(out.stdout.contains("Usage:"));
+            assert!(out.stderr.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn global_version_subcommands_work() {
+        for arg in ["version", "--version", "-V"] {
+            let out = run_cli(vec![arg.to_string()]).await.expect("run success");
+            assert_eq!(out.exit_code, 0);
+            assert_eq!(
+                out.stdout,
+                format!("{} {}\n", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+            );
             assert!(out.stderr.is_empty());
         }
     }
