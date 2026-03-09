@@ -1,4 +1,9 @@
 # aci
+<!-- bdg:begin -->
+[![crates.io](https://img.shields.io/crates/v/aci.svg)](https://crates.io/crates/aci)
+[![license](https://img.shields.io/github/license/f4ah6o/aci-rs.svg)](https://github.com/f4ah6o/aci-rs)
+[![CI](https://github.com/f4ah6o/aci-rs/actions/workflows/publish.yaml/badge.svg)](https://github.com/f4ah6o/aci-rs/actions/workflows/publish.yaml)
+<!-- bdg:end -->
 
 Rust implementation of "Mount APIs as CLIs".
 
@@ -127,3 +132,5 @@ aci --config aci.toml pet raw pet findByStatus --query status=available
 - `0`: success
 - `1`: upstream/API execution failure
 - `2`: usage/config/input error
+
+
