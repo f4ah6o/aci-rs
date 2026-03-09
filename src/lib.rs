@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use axum::body::Body;
+use base64::Engine;
 use bytes::Bytes;
 use http::{HeaderMap, Method, Request, Response, StatusCode};
 use http_body::Body as HttpBody;
@@ -266,8 +267,21 @@ struct OperationDef {
     query_params: Vec<ParamDef>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum AuthConfig {
+    UserpassEnv {
+        encoding: Option<String>,
+        header: String,
+        password_env: String,
+        prefix: Option<String>,
+        username_env: String,
+    },
+}
+
 #[derive(Clone)]
 pub struct Mount {
+    auth: Option<AuthConfig>,
     base_path: Option<String>,
     name: String,
     openapi_ops: HashMap<String, OperationDef>,
@@ -277,6 +291,7 @@ pub struct Mount {
 impl Mount {
     pub fn fetch(name: impl Into<String>, target: MountTarget) -> Self {
         Self {
+            auth: None,
             base_path: None,
             name: name.into(),
             openapi_ops: HashMap::new(),
@@ -296,6 +311,11 @@ impl Mount {
 
     pub fn base_path(mut self, path: impl Into<String>) -> Self {
         self.base_path = Some(path.into());
+        self
+    }
+
+    fn auth(mut self, auth: AuthConfig) -> Self {
+        self.auth = Some(auth);
         self
     }
 
@@ -324,7 +344,8 @@ impl Mount {
 
     async fn run_raw(&self, args: &[String], verbose: bool) -> Result<CommandOutput, AciError> {
         let input = parse_fetch_argv(args)?;
-        let request = build_request(input, self.base_path.as_deref())?;
+        let mut request = build_request(input, self.base_path.as_deref())?;
+        self.apply_auth_headers(&mut request.headers)?;
         let response = self.target.inner.execute(request).await?;
         Ok(format_response(response, verbose))
     }
@@ -424,7 +445,7 @@ impl Mount {
             );
         }
 
-        let request = build_request(
+        let mut request = build_request(
             FetchInput {
                 body,
                 headers,
@@ -434,9 +455,68 @@ impl Mount {
             },
             self.base_path.as_deref(),
         )?;
+        self.apply_auth_headers(&mut request.headers)?;
 
         let response = self.target.inner.execute(request).await?;
         Ok(format_response(response, verbose))
+    }
+
+    fn apply_auth_headers(&self, headers: &mut HeaderMap) -> Result<(), AciError> {
+        let Some(auth) = &self.auth else {
+            return Ok(());
+        };
+
+        match auth {
+            AuthConfig::UserpassEnv {
+                encoding,
+                header,
+                password_env,
+                prefix,
+                username_env,
+            } => {
+                let header_name = http::header::HeaderName::from_bytes(header.as_bytes())
+                    .map_err(|e| AciError::Config(format!("invalid auth header '{}': {e}", header)))?;
+
+                if headers.contains_key(&header_name) {
+                    return Ok(());
+                }
+
+                let username = std::env::var(username_env).map_err(|_| {
+                    AciError::Config(format!(
+                        "mount '{}' requires env '{}' for auth",
+                        self.name, username_env
+                    ))
+                })?;
+                let password = std::env::var(password_env).map_err(|_| {
+                    AciError::Config(format!(
+                        "mount '{}' requires env '{}' for auth",
+                        self.name, password_env
+                    ))
+                })?;
+
+                let userpass = format!("{username}:{password}");
+                let encoded = match encoding.as_deref().unwrap_or("plain") {
+                    "plain" => userpass,
+                    "base64" => base64::engine::general_purpose::STANDARD.encode(userpass),
+                    other => {
+                        return Err(AciError::Config(format!(
+                            "mount '{}' has unsupported auth encoding '{}'",
+                            self.name, other
+                        )))
+                    }
+                };
+                let final_value = format!("{}{}", prefix.as_deref().unwrap_or(""), encoded);
+                let header_value = http::HeaderValue::from_str(&final_value).map_err(|e| {
+                    AciError::Config(format!(
+                        "invalid auth header value for mount '{}': {e}",
+                        self.name
+                    ))
+                })?;
+
+                headers.insert(header_name, header_value);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -495,8 +575,10 @@ struct AppConfig {
 
 #[derive(Debug, Deserialize)]
 struct MountConfig {
+    auth: Option<AuthConfig>,
     base_path: Option<String>,
     base_url: Option<String>,
+    base_url_env: Option<String>,
     kind: String,
     name: String,
     openapi: Option<String>,
@@ -699,9 +781,7 @@ fn load_app_from_toml(path: &Path) -> Result<AciApp, AciError> {
             )));
         }
 
-        let base_url = mount
-            .base_url
-            .ok_or_else(|| AciError::Config(format!("mount '{}' requires base_url", mount.name)))?;
+        let base_url = resolve_base_url(&mount)?;
 
         let target = MountTarget::remote_with_timeout(base_url, mount.timeout_ms)?;
         let mut m = if let Some(openapi_path) = mount.openapi {
@@ -717,11 +797,40 @@ fn load_app_from_toml(path: &Path) -> Result<AciApp, AciError> {
         if let Some(base_path) = mount.base_path {
             m = m.base_path(base_path);
         }
+        if let Some(auth) = mount.auth {
+            m = m.auth(auth);
+        }
 
         app = app.mount(m);
     }
 
     Ok(app)
+}
+
+fn resolve_base_url(mount: &MountConfig) -> Result<String, AciError> {
+    if let Some(base_url_env) = &mount.base_url_env {
+        if let Ok(value) = std::env::var(base_url_env) {
+            if !value.trim().is_empty() {
+                return Ok(value);
+            }
+            return Err(AciError::Config(format!(
+                "mount '{}' has empty env '{}' for base_url_env",
+                mount.name, base_url_env
+            )));
+        }
+        if let Some(base_url) = mount.base_url.clone() {
+            return Ok(base_url);
+        }
+        return Err(AciError::Config(format!(
+            "mount '{}' requires env '{}' for base_url_env or explicit base_url",
+            mount.name, base_url_env
+        )));
+    }
+
+    mount
+        .base_url
+        .clone()
+        .ok_or_else(|| AciError::Config(format!("mount '{}' requires base_url", mount.name)))
 }
 
 pub fn parse_fetch_argv(args: &[String]) -> Result<FetchInput, AciError> {
