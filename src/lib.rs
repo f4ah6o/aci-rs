@@ -474,8 +474,10 @@ impl Mount {
                 prefix,
                 username_env,
             } => {
-                let header_name = http::header::HeaderName::from_bytes(header.as_bytes())
-                    .map_err(|e| AciError::Config(format!("invalid auth header '{}': {e}", header)))?;
+                let header_name =
+                    http::header::HeaderName::from_bytes(header.as_bytes()).map_err(|e| {
+                        AciError::Config(format!("invalid auth header '{}': {e}", header))
+                    })?;
 
                 if headers.contains_key(&header_name) {
                     return Ok(());
@@ -502,7 +504,7 @@ impl Mount {
                         return Err(AciError::Config(format!(
                             "mount '{}' has unsupported auth encoding '{}'",
                             self.name, other
-                        )))
+                        )));
                     }
                 };
                 let final_value = format!("{}{}", prefix.as_deref().unwrap_or(""), encoded);
