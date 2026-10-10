@@ -2,7 +2,7 @@
 <!-- bdg:begin -->
 [![crates.io](https://img.shields.io/crates/v/aci.svg)](https://crates.io/crates/aci)
 [![license](https://img.shields.io/github/license/f4ah6o/aci-rs.svg)](https://github.com/f4ah6o/aci-rs)
-[![CI](https://github.com/f4ah6o/aci-rs/actions/workflows/publish.yaml/badge.svg)](https://github.com/f4ah6o/aci-rs/actions/workflows/publish.yaml)
+[![CI](https://github.com/f4ah6o/aci-rs/actions/workflows/release.yaml/badge.svg)](https://github.com/f4ah6o/aci-rs/actions/workflows/release.yaml)
 <!-- bdg:end -->
 
 Rust implementation of "Mount APIs as CLIs".
@@ -24,7 +24,7 @@ cargo install --path .
 
 This repository is configured for [crates.io trusted publishing](https://crates.io/docs/trusted-publishing).
 
-Create and push a `v<version>` tag to trigger publish:
+Releases use CalVer `YYYY.MM.PATCH` via [f4ah6o/calver-action](https://github.com/f4ah6o/calver-action). Move the `latest` tag to the commit you want to release:
 
 ```bash
 just release
@@ -33,11 +33,11 @@ just release
 or:
 
 ```bash
-git tag v2026.3.0
-git push origin v2026.3.0
+git tag -f latest <commit>
+git push -f origin latest
 ```
 
-Before first publish, enable trusted publishing for crate `aci` in crates.io and link `f4ah6o/aci-rs`.
+The workflow allocates the next CalVer, publishes to crates.io, builds binaries with cargo-dist, and verifies `cargo binstall aci`.
 
 ## Quick Start
 
