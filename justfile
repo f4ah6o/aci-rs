@@ -24,15 +24,5 @@ release-check:
 
 release: release-check
   @bash -ceu 'set -euo pipefail; \
-    version="$(grep -m1 "^version = " Cargo.toml | cut -d "\"" -f2)"; \
-    tag="v${version}"; \
-    if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then \
-      echo "tag already exists locally: ${tag}" >&2; \
-      exit 1; \
-    fi; \
-    if git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then \
-      echo "tag already exists on origin: ${tag}" >&2; \
-      exit 1; \
-    fi; \
-    git tag "${tag}"; \
-    git push origin "${tag}"'
+    git tag -f latest HEAD; \
+    git push -f origin latest'
